@@ -2,45 +2,90 @@ require 'rest-client'
 require 'json'
 require 'pry'
 
-def get_all_characters(character)
-  all_characters = RestClient.get('http://www.swapi.co/api/people/')
-  character_hash = JSON.parse(all_characters)
+class Api
+  def initialize params
+    @params = params
+  end
+
+  def call
+    JSON.parse(RestClient.get('http://www.swapi.co/api/' + @params + '/'))
+  end
+
+  def call_full
+    JSON.parse(RestClient.get(@params))
+  end
 end
 
-def films_by_character(character_hash, character)
-  character_films = nil
-  character_hash["results"].each do |item|
-    item.each do |k,v|
-      if k == "name"
-        if v.downcase == character
-          character_films = item["films"]
+class Film
+  ALL_FILMS = Api.new("films").call
+
+  attr_accessor :data
+
+  def initialize title
+    @title = title
+    @data = self.get_data
+  end
+
+  def get_data
+    ALL_FILMS["results"].each do |item|
+      item.each do |k,v|
+        if k == "title"
+          if v.downcase == @title
+            return item
+          end
         end
       end
     end
   end
-  character_films
-end
 
-def film_hash_from_api(character_films)
-  films_hash = []
-  character_films.each do |film|
-    all_films = RestClient.get(film)
-    parsed_films = JSON.parse(all_films)
-    films_hash << parsed_films
+  def get_titles title_url_array
+    title_url_array.each do |url|
+      ALL_FILMS["results"].each do |item|
+        item.each do |k,v|
+          if k == "url"
+            if v == url
+              puts item["title"]
+            end
+          end
+        end
+      end
+    end
   end
-  films_hash
 end
 
-def parse_character_movies(films_hash)
-  puts "\nHere are some the character's films:\n\n"
-  films_hash.each do |film|
-    puts film["title"]
+class Character
+  ALL_CHARACTERS = Api.new("people").call
+
+  attr_accessor :data
+
+  def initialize name
+    @name = name
+    @data = self.get_data
+  end
+
+  def get_data
+    ALL_CHARACTERS["results"].each do |item|
+      item.each do |k,v|
+        if k == "name"
+          if v.downcase == @name
+            return item
+          end
+        end
+      end
+    end
+  end
+
+  def get_films
+    film_urls = @data["films"]
+    puts "\nHere are #{@name.capitalize}'s films:\n\n"
+    film_urls.each do |url|
+      film_hash = Api.new(url).call_full
+      puts film_hash["title"]
+    end
   end
 end
 
 def show_character_movies(character)
-  character_hash = get_all_characters(character)
-  character_films = films_by_character(character_hash, character)
-  films_hash = film_hash_from_api(character_films)
-  parse_character_movies(films_hash)
+  new_input = Character.new character
+  new_input.get_films
 end
